@@ -170,8 +170,8 @@
             var password = document.getElementById('password').value;
             var confirmar = document.getElementById('confirmar_password').value;
             
-            if (password.length < 6) {
-                alert('La contraseña debe tener al menos 6 caracteres.');
+            if (password.length < 8) {
+                alert('La contraseña debe tener al menos 8 caracteres.');
                 return false;
             }
             
