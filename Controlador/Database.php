@@ -13,6 +13,10 @@ class Database {
     private function conectar() {
         $this->conexion = new mysqli($this->host, $this->usuario, $this->password, $this->database);
         
+        if ($this->conexion->connect_error) {
+            die("Error de conexión: " . $this->conexion->connect_error);
+        }
+        
         $this->conexion->set_charset("utf8");
     }
     
