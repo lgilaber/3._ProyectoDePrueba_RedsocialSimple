@@ -263,18 +263,18 @@
         
         <div class="publicacion-form">
             <h3>Crear Publicación</h3>
-            <form action="index.php?action=publicar" method="POST">
-                <textarea name="mensaje" placeholder="¿Qué estás pensando?" required></textarea>
+            <form action="index.php?action=publicar" method="POST" onsubmit="return validarPublicacion()">
+                <textarea id="mensaje" name="mensaje" placeholder="¿Qué estás pensando?" required></textarea>
                 <button type="submit" class="btn-publicar">Publicar</button>
             </form>
         </div>
         
         <div class="publicaciones">
             <h3>Mis Publicaciones</h3>
-            <?php if (empty($publicacion)): ?>
+            <?php if (empty($publicaciones)): ?>
                 <p style="color: #999; text-align: center;">No tienes publicaciones aún.</p>
             <?php else: ?>
-                <?php foreach ($publicacion as $pub): ?>
+                <?php foreach ($publicaciones as $pub): ?>
                     <div class="publicacion-item">
                         <div class="publicacion-fecha">
                             <?php echo date('d/m/Y H:i', strtotime($pub['fecha'])); ?>
@@ -307,5 +307,15 @@
             <?php endforeach; ?>
         </div>
     </div>
+    <script>
+        function validarPublicacion() {
+            var mensaje = document.getElementById('mensaje').value.trim();
+            if (mensaje === '') {
+                alert('El mensaje no puede estar vacío.');
+                return false;
+            }
+            return true;
+        }
+    </script>
 </body>
 </html>
