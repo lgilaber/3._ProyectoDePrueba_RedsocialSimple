@@ -29,8 +29,8 @@ class UsuarioController {
             $password = $_POST['password'] ?? '';
             $confirmar = $_POST['confirmar_password'] ?? '';
             
-            if (empty($nombre) || empty($email) || empty($password) || strlen($password) < 6) {
-                $_SESSION['error'] = "Todos los campos son obligatorios y la contraseña debe tener al menos 6 caracteres.";
+            if (empty($nombre) || empty($email) || empty($password) || strlen($password) < 8) {
+                $_SESSION['error'] = "Todos los campos son obligatorios y la contraseña debe tener al menos 8 caracteres.";
                 header("Location: index.php?action=register");
                 exit();
             }
@@ -40,12 +40,14 @@ class UsuarioController {
                 header("Location: index.php?action=register");
                 exit();
             }
-            
+
+            $nombre = $this->conn->real_escape_string(trim($nombre));
+            $email = $this->conn->real_escape_string(trim($email));
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
             
             $imagen = NULL;
             if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] == 0) {
-                $imagen_nombre = time() . '_' . $_FILES['imagen']['name'];
+                $imagen_nombre = time() . '_' . basename($_FILES['imagen']['name']);
                 $imagen_temp = $_FILES['imagen']['tmp_name'];
                 $imagen_destino = 'uploads/' . $imagen_nombre;
                 
@@ -57,15 +59,18 @@ class UsuarioController {
                 $imagen = $imagen_destino;
             }
             
-            $sql = "INSERT INTO usuario (usr_name, usr_email, usr_pass, imagen) VALUES ('$nombre', '$email', '$password_hash', '$imagen')";
+            // Usar prepared statement para prevenir inyección SQL
+            $stmt = $this->conn->prepare("INSERT INTO usuario (usr_name, usr_email, usr_pass, imagen) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("ssss", $nombre, $email, $password_hash, $imagen);
             
-            if ($this->conn->query($sql)) {
+            if ($stmt->execute()) {
                 $_SESSION['success'] = "Usuario registrado exitosamente.";
                 header("Location: index.php?action=login");
             } else {
-                $_SESSION['error'] = "Error al registrar usuario: " . $this->conn->error;
+                $_SESSION['error'] = "Error al registrar usuario: " . $stmt->error;
                 header("Location: index.php?action=register");
             }
+            $stmt->close();
             exit();
         }
     }
@@ -85,10 +90,13 @@ class UsuarioController {
                 exit();
             }
             
-            $sql = "SELECT * FROM usuario WHERE usr_email = '$email'";
-            $resultado = $this->conn->query($sql);
+            // Usar prepared statement para prevenir inyección SQL
+            $stmt = $this->conn->prepare("SELECT * FROM usuario WHERE usr_email = ?");
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $resultado = $stmt->get_result();
             
-            if ($resultado->num_rows > 0) {
+            if ($resultado && $resultado->num_rows > 0) {
                 $usuario = $resultado->fetch_assoc();
                 
                 if (password_verify($password, $usuario['usr_pass'])) {
@@ -96,7 +104,8 @@ class UsuarioController {
                     $_SESSION['usuario_nombre'] = $usuario['usr_name'];
                     $_SESSION['usuario_email'] = $usuario['usr_email'];
                     $_SESSION['usuario_imagen'] = $usuario['imagen'];
-                    
+
+                    $stmt->close();
                     header("Location: index.php?action=perfil");
                     exit();
                 } else {
@@ -105,7 +114,7 @@ class UsuarioController {
             } else {
                 $_SESSION['error'] = "Usuario no encontrado.";
             }
-            
+            $stmt->close();
             header("Location: index.php?action=login");
             exit();
         }
@@ -125,16 +134,20 @@ class UsuarioController {
             $usuarios[] = $row;
         }
         
-        $sql_pub = "SELECT * FROM publicacion WHERE usuario_id = " . $_SESSION['usuario_id'] . " ORDER BY fecha DESC";
-        $resultado_pub = $this->conn->query($sql_pub);
-        $publicacion = [];
+        $sql_pub = "SELECT * FROM publicacion WHERE usuario_id = ? ORDER BY fecha DESC";
+        $stmt = $this->conn->prepare($sql_pub);
+        $stmt->bind_param("i", $_SESSION['usuario_id']);
+        $stmt->execute();
+        $resultado_pub = $stmt->get_result();
+        $publicaciones = [];
         
         if ($resultado_pub) {
             while ($row = $resultado_pub->fetch_assoc()) {
-                $publicacion[] = $row;
+                $publicaciones[] = $row;
             }
         }
-        
+        $stmt->close();
+
         require_once 'Vista/perfil.php';
     }
     
@@ -146,14 +159,21 @@ class UsuarioController {
         
         $id_usuario = $_GET['id'] ?? 0;
         
-        $sql = "SELECT * FROM usuario WHERE id = $id_usuario";
-        $resultado = $this->conn->query($sql);
+        // Usar prepared statement para prevenir inyección SQL
+        $stmt = $this->conn->prepare("SELECT * FROM usuario WHERE id = ?");
+        $stmt->bind_param("i", $id_usuario);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
         
-        if ($resultado->num_rows > 0) {
+        if ($resultado && $resultado->num_rows > 0) {
             $usuario = $resultado->fetch_assoc();
+            $stmt->close();
             
-            $sql_pub = "SELECT * FROM publicacion WHERE usuario_id = $id_usuario ORDER BY fecha DESC";
-            $resultado_pub = $this->conn->query($sql_pub);
+            $sql_pub = "SELECT * FROM publicacion WHERE usuario_id = ? ORDER BY fecha DESC";
+            $stmt_pub = $this->conn->prepare($sql_pub);
+            $stmt_pub->bind_param("i", $id_usuario);
+            $stmt_pub->execute();
+            $resultado_pub = $stmt_pub->get_result();
             $publicaciones = [];
             
             if ($resultado_pub) {
@@ -161,6 +181,7 @@ class UsuarioController {
                     $publicaciones[] = $row;
                 }
             }
+            $stmt_pub->close();
             
             require_once 'Vista/ver_usuario.php';
         } else {
@@ -192,13 +213,15 @@ class UsuarioController {
             }
             
             $usuario_id = $_SESSION['usuario_id'];
-            $sql = "INSERT INTO publicacion (usuario_id, mensaje, fecha) VALUES ($usuario_id, '$mensaje', NOW())";
+            $stmt = $this->conn->prepare("INSERT INTO publicacion (usuario_id, mensaje, fecha) VALUES (?, ?, NOW())");
+            $stmt->bind_param("is", $usuario_id, $mensaje);            
             
-            if ($this->conn->query($sql)) {
+            if ($stmt->execute()) {
                 $_SESSION['success'] = "Publicación creada exitosamente.";
             } else {
-                $_SESSION['error'] = "Error al crear publicación.";
+                $_SESSION['error'] = "Error al crear publicación: " . $stmt->error;
             }
+            $stmt->close();
             
             header("Location: index.php?action=perfil");
             exit();
