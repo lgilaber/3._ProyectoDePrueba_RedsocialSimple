@@ -117,7 +117,7 @@
             </div>
         <?php endif; ?>
         
-        <form action="index.php?action=iniciar_sesion" method="POST">
+        <form action="index.php?action=iniciar_sesion" method="POST" onsubmit="return validarLogin()">
             <div class="form-group">
                 <label for="email">Email:</label>
                 <input type="email" id="email" name="email" required>
@@ -135,5 +135,18 @@
             <p>¿No tienes cuenta? <a href="index.php?action=register">Regístrate aquí</a></p>
         </div>
     </div>
+    <script>
+        function validarLogin() {
+            var email = document.getElementById('email').value.trim();
+            var password = document.getElementById('password').value.trim();
+
+            if (email === '' || password === '') {
+                alert('Todos los campos son obligatorios.');
+                return false;
+            }
+
+            return true;
+        }
+    </script>
 </body>
 </html>
